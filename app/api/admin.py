@@ -38,6 +38,7 @@ async def _ping_qdrant() -> bool:
             url=settings.qdrant_url,
             api_key=settings.qdrant_api_key or None,
             timeout=2,
+        )
         client.get_collections()
         return True
     except Exception as exc:
@@ -134,10 +135,9 @@ async def cache_stats(user: User = Depends(require_admin)) -> dict:
         "intent_router": _tier("intent"),
     }
 
-
-
 @router.post("/admin/cache/clear")
 async def cache_clear(user: User = Depends(require_admin)) -> dict:
     """Clear all caches (Redis + in-memory)."""
     cleared = query_cache.clear()
     return {"status": "ok", "cleared": cleared}
+    
