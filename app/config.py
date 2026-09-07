@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     embedding_model: str = "text-embedding-3-small"
 
     qdrant_url: str = "https://71708b1a-eded-4505-9082-099400e9728c.us-west-1-0.aws.cloud.qdrant.io"
+    qdrant_api_key: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIiwic3ViamVjdCI6ImFwaS1rZXk6MjA1MjIzZDQtODRlMC00ZjY5LTg5NWMtYjEzZjI1YjQ0YjdkIn0.hE31Z2-tJf8wayB0d3akMdyzI9D4N5tMVtwIDrVH15s"
     qdrant_collection: str = "documents"
 
     database_url: str = "postgresql://postgres:postgres@localhost:5432/adv_rag"
