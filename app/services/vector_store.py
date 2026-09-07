@@ -14,7 +14,11 @@ VECTOR_SIZE = 1536
 
 
 def get_client() -> QdrantClient:
-    return QdrantClient(url=settings.qdrant_url, timeout=30)
+    return QdrantClient(
+        url=settings.qdrant_url,
+        api_key=settings.qdrant_api_key or None,
+        timeout=30,
+    )
 
 def ensure_collection() -> None:
     client = get_client()
