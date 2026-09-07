@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     llm_model_grader: str = "gpt-4o-mini"
     embedding_model: str = "text-embedding-3-small"
 
-    qdrant_url: str = "http://localhost:6333"
+    qdrant_url: str = "https://71708b1a-eded-4505-9082-099400e9728c.us-west-1-0.aws.cloud.qdrant.io"
     qdrant_collection: str = "documents"
 
     database_url: str = "postgresql://postgres:postgres@localhost:5432/adv_rag"
