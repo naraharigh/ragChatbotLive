@@ -11,6 +11,7 @@ from app.security.input_restructuring import count_tokens, restructure_input
 from app.security.token_budget import check_budget, consume_budget
 
 from app.core.graph import graph
+from app.core.query_runtime import log_memory, single_query
 from app.middleware.auth import User, get_current_user
 from app.models import ChatResponse, QueryRequest, PendingSQLBlock
 
@@ -30,7 +31,8 @@ class SqlExecuteRequest(BaseModel):
 
 
 @router.post("/query", response_model=ChatResponse)
-async def query(
+@single_query
+def query(
     body: QueryRequest,
     user: User = Depends(get_current_user),
 ) -> ChatResponse:
@@ -59,12 +61,16 @@ async def query(
     restructured, _method = restructure_input(body.question)
 
     # Layer 2 (LLM-Guard input scan): injection / ban-topic / toxicity
+    log_memory("before_input_scanners")
     guard_allowed, guard_reason = check_input_safe(restructured)
+    log_memory("after_input_scanners")
     if not guard_allowed:
         raise HTTPException(status_code=400, detail=f"injection_blocked: {guard_reason}")
 
     # Layer 4 (content moderation in): PII redaction + toxicity
+    log_memory("before_moderation")
     mod_allowed, moderated_in, mod_reason = moderate_and_redact(restructured)
+    log_memory("after_moderation")
     if not mod_allowed:
         raise HTTPException(status_code=400, detail=f"content_blocked: {mod_reason}")
 
@@ -79,6 +85,7 @@ async def query(
     thread_id = str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
 
+    log_memory("before_graph")
     result = graph.invoke(
         {
             "question": moderated_in,
@@ -88,6 +95,7 @@ async def query(
         config=config,
     )
 
+    log_memory("after_graph")
     if "__interrupt__" in result:
         intr = result["__interrupt__"][0].value
         return ChatResponse(
@@ -122,7 +130,8 @@ async def query(
 
 
 @router.post("/query/sql/execute", response_model=ChatResponse)
-async def execute_sql(
+@single_query
+def execute_sql(
     body: SqlExecuteRequest,
     user: User = Depends(get_current_user),
 ) -> ChatResponse:
