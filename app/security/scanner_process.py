@@ -15,11 +15,21 @@ from app.config import settings
 
 
 def run_scanners(stage: str, text: str) -> dict:
+    if stage == "input":
+        try:
+            import tiktoken
+
+            token_count = len(tiktoken.get_encoding("cl100k_base").encode(text, disallowed_special=()))
+        except Exception:
+            raise HTTPException(503, "Token validation unavailable.") from None
+        logger.info("Inline token check count={} limit=4096", token_count)
+        if token_count > 4096:
+            return {"is_safe": False, "sanitized": text, "failed_checks": ["TokenLimit"], "scores": {"TokenLimit": 1.0}}
     if stage == "pii" and not settings.enable_pii_scanning:
         logger.info("PII scanner disabled by configuration stage={}", stage)
         return {"is_safe": True, "sanitized": text, "failed_checks": [], "scores": {}}
     names = {
-        "input": ["PromptInjection", "Toxicity", "BanTopics", "TokenLimit"],
+        "input": ["PromptInjection", "Toxicity", "BanTopics"],
         "moderation": ["Toxicity", "BanTopics"],
         "pii": ["Sensitive"],
     }[stage]
