@@ -802,6 +802,21 @@ def _query_section(base_url: str, lesson_info: dict) -> None:
         active_str = " · ".join(active) if active else "None (basic retrieval)"
         st.caption(f"Active features: **{active_str}** | Search: **{search_mode}** | top_k: **{top_k}**")
 
+    # Check question size locally before sending it to the backend.
+    try:
+        import tiktoken
+
+        question_tokens = len(
+            tiktoken.get_encoding("cl100k_base").encode(question, disallowed_special=())
+        )
+    except Exception:
+        st.error("Token validation unavailable. Install tiktoken and reload the interface.")
+        return
+    st.caption(f"Question length: {question_tokens:,} / 4,096 tokens")
+    if question_tokens > 4096:
+        st.error("Your question exceeds 4,096 tokens. Please shorten it before submitting.")
+        return
+
     # Build body: only send fields the API actually supports
     body: dict[str, Any] = {"question": question}
     if has_top_k:
