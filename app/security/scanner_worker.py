@@ -36,4 +36,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as exc:
+        print(f"SCANNER_ERROR:{type(exc).__name__}", file=sys.stderr, flush=True)
+        sys.exit(1)
