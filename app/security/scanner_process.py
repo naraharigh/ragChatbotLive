@@ -20,6 +20,9 @@ def run_scanners(stage: str, text: str) -> dict:
         "moderation": ["Toxicity", "BanTopics"],
         "pii": ["Sensitive"],
     }[stage]
+    if not settings.enable_ban_topics and "BanTopics" in names:
+        names = [name for name in names if name != "BanTopics"]
+        logger.info("BanTopics scanner disabled by configuration stage={}", stage)
     scores = {}
     for name in names:
         payload = {
