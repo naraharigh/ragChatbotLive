@@ -75,6 +75,7 @@ class Settings(BaseSettings):
     log_json: bool = False
     log_level: str = "INFO"
     enable_toxicity: bool = True
+    enable_pii_scanning: bool = True
 
 
 
