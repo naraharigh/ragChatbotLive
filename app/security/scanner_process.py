@@ -4,6 +4,7 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from fastapi import HTTPException
@@ -30,20 +31,23 @@ def run_scanners(stage: str, text: str) -> dict:
         returncode = None
         worker_error = "unknown"
         try:
-            result = subprocess.run(
-                [sys.executable, "-m", "app.security.scanner_worker"],
-                input=json.dumps(payload), text=True, capture_output=True,
-                cwd=Path(__file__).resolve().parents[2], timeout=300,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            )
-            returncode = result.returncode
-            if returncode:
-                # Only accept a class name from our worker's structured marker.
-                match = re.search(r"^SCANNER_ERROR:([A-Za-z][A-Za-z0-9_]{0,99})$", result.stderr, re.MULTILINE)
-                if match:
-                    worker_error = match.group(1)
-                raise RuntimeError("Scanner process failed")
-            output = json.loads(result.stdout)
+            # A private result file keeps native-library stdout out of the protocol.
+            with tempfile.TemporaryDirectory(prefix="rag-scanner-") as directory:
+                result_path = Path(directory) / "result.json"
+                result = subprocess.run(
+                    [sys.executable, "-m", "app.security.scanner_worker", str(result_path)],
+                    input=json.dumps(payload), text=True, encoding="utf-8",
+                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                    cwd=Path(__file__).resolve().parents[2], timeout=300,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+                returncode = result.returncode
+                if returncode:
+                    match = re.search(r"^SCANNER_ERROR:([A-Za-z][A-Za-z0-9_]{0,99})$", result.stderr, re.MULTILINE)
+                    if match:
+                        worker_error = match.group(1)
+                    raise RuntimeError("Scanner process failed")
+                output = json.loads(result_path.read_text(encoding="utf-8"))
             text = output["sanitized"]
             valid = output["valid"]
             if not isinstance(text, str) or not isinstance(valid, bool):
