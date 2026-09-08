@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     max_input_tokens: int = 3_000
     reserved_context_tokens: int = 1_000
     reserved_output_tokens: int = 1_000
-
+    enable_ban_topics: bool = True
     prompt_injection_threshold: float = 0.75
     toxicity_threshold: float = 0.75
     output_toxicity_threshold: float = 0.5
