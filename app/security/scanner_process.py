@@ -1,6 +1,7 @@
 """Run one security model per child process; never retain models in the API."""
 
 import json
+import math
 import re
 import subprocess
 import sys
@@ -36,30 +37,48 @@ def run_scanners(stage: str, text: str) -> dict:
                 result_path = Path(directory) / "result.json"
                 result = subprocess.run(
                     [sys.executable, "-m", "app.security.scanner_worker", str(result_path)],
-                    input=json.dumps(payload), text=True, encoding="utf-8",
-                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
-                    cwd=Path(__file__).resolve().parents[2], timeout=300,
+                    input=json.dumps(payload),
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
+                    cwd=Path(__file__).resolve().parents[2],
+                    timeout=300,
                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 )
                 returncode = result.returncode
                 if returncode:
-                    match = re.search(r"^SCANNER_ERROR:([A-Za-z][A-Za-z0-9_]{0,99})$", result.stderr, re.MULTILINE)
+                    match = re.search(
+                        r"^SCANNER_ERROR:([A-Za-z][A-Za-z0-9_]{0,99})\r?$",
+                        result.stderr or "",
+                        re.MULTILINE,
+                    )
                     if match:
                         worker_error = match.group(1)
                     raise RuntimeError("Scanner process failed")
                 output = json.loads(result_path.read_text(encoding="utf-8"))
-            text = output["sanitized"]
+            if not isinstance(output, dict):
+                raise ValueError("Scanner response must be a JSON object")
+            sanitized = output["sanitized"]
             valid = output["valid"]
-            if not isinstance(text, str) or not isinstance(valid, bool):
+            score = output["score"]
+            if not isinstance(sanitized, str) or not isinstance(valid, bool):
                 raise ValueError("Invalid scanner response")
-            scores[name] = output["score"]
+            if type(score) not in (int, float) or not math.isfinite(score):
+                raise ValueError("Invalid scanner score")
+            text = sanitized
+            scores[name] = score
         except (OSError, subprocess.TimeoutExpired, ValueError, KeyError, TypeError, RuntimeError) as exc:
             # Scanner logs can contain private request text. Do not echo them.
             logger.error(
                 "Isolated scanner failed stage={} scanner={} error={} exit_code={} worker_error={}",
                 stage, name, type(exc).__name__, returncode, worker_error,
             )
-            raise HTTPException(503, "Security scanning unavailable. Please retry later.") from None
+            raise HTTPException(
+                status_code=503,
+                detail="Security scanning unavailable. Please retry later.",
+            ) from None
         logger.info("Finished isolated scanner stage={} scanner={}", stage, name)
         if not valid and stage != "pii":
             return {"is_safe": False, "sanitized": text, "failed_checks": [name], "scores": scores}
