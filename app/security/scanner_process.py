@@ -24,6 +24,9 @@ def run_scanners(stage: str, text: str) -> dict:
         names = [name for name in names if name != "BanTopics"]
         logger.info("BanTopics scanner disabled by configuration stage={}", stage)
     scores = {}
+    if not settings.enable_toxicity and "Toxicity" in names:
+        names = [name for name in names if name != "Toxicity"]
+        logger.info("Toxicity scanner disabled by configuration stage={}", stage)
     for name in names:
         payload = {
             "stage": stage, "name": name, "text": text,
