@@ -1,13 +1,15 @@
-"""Private stdin/stdout protocol for a single short-lived scanner."""
+"""Private stdin/result-file protocol for a single short-lived scanner."""
 
 import contextlib
 import json
 import sys
+from pathlib import Path
 
 
 def main() -> None:
-    request = json.load(sys.stdin)
-    # Reserve stdout for the JSON result, including during library imports.
+    result_path = Path(sys.argv[1])
+    request = json.loads(sys.stdin.buffer.read().decode("utf-8"))
+    # Library output is diagnostic only; results use a separate file.
     with contextlib.redirect_stdout(sys.stderr):
         import llm_guard.input_scanners as inputs
         import llm_guard.output_scanners as outputs
@@ -32,7 +34,10 @@ def main() -> None:
             raise ValueError("Unknown scanner")
         args = (request["text"],) if stage == "input" else ("", request["text"])
         sanitized, valid, score = scanner.scan(*args)
-    json.dump({"sanitized": str(sanitized), "valid": bool(valid), "score": float(score)}, sys.stdout)
+    result_path.write_text(
+        json.dumps({"sanitized": str(sanitized), "valid": bool(valid), "score": float(score)}),
+        encoding="utf-8",
+    )
 
 
 if __name__ == "__main__":
