@@ -15,6 +15,9 @@ from app.config import settings
 
 
 def run_scanners(stage: str, text: str) -> dict:
+    if stage == "pii" and not settings.enable_pii_scanning:
+        logger.info("PII scanner disabled by configuration stage={}", stage)
+        return {"is_safe": True, "sanitized": text, "failed_checks": [], "scores": {}}
     names = {
         "input": ["PromptInjection", "Toxicity", "BanTopics", "TokenLimit"],
         "moderation": ["Toxicity", "BanTopics"],
